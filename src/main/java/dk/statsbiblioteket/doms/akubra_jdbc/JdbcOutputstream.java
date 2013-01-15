@@ -2,6 +2,8 @@ package dk.statsbiblioteket.doms.akubra_jdbc;
 
 import org.hibernate.Query;
 import org.hibernate.Session;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -17,6 +19,8 @@ import java.sql.SQLException;
  */
 public class JdbcOutputstream extends ByteArrayOutputStream {
 
+
+    Logger log = LoggerFactory.getLogger(JdbcOutputstream.class);
     private HibernateBlob blob;
     private Session session;
 
@@ -27,6 +31,8 @@ public class JdbcOutputstream extends ByteArrayOutputStream {
 
     @Override
     public void close() throws IOException {
+
+        log.info("Closing outputstream for {}",blob);
         super.close();    //To change body of overridden methods use File | Settings | File Templates.
         byte[] result = this.toByteArray();
         if (session.isOpen()){
@@ -35,6 +41,7 @@ public class JdbcOutputstream extends ByteArrayOutputStream {
             ps.setBinary(0, result);
             ps.executeUpdate();
             session.refresh(blob);
+
         }
 
     }

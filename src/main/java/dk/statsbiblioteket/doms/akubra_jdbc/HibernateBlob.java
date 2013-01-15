@@ -51,4 +51,12 @@ public class HibernateBlob{
     public void setBlobValue(Blob blobValue) {
         this.blobValue = blobValue;
     }
+
+    @Override
+    public String toString() {
+        return "HibernateBlob{" +
+                "id='" + id + '\'' +
+                ", blobValue=" + blobValue +
+                '}';
+    }
 }

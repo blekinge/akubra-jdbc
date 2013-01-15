@@ -73,17 +73,32 @@ public class JdbcBlobStoreConnectionTest {
 
         BlobStoreConnection connection = store.openConnection(null, null);
         Blob blob = connection.getBlob(null, null);
-        System.out.println(blob.exists());
+        write(blob,"sdfds");
+        assertTrue(blob.exists());
+        System.out.println(blob.getId());
         blob = connection.getBlob(null, null);
+        write(blob,"sdfds");
+        assertTrue(blob.exists());
+        System.out.println(blob.getId());
         blob = connection.getBlob(null, null);
+        write(blob,"sdfds");
+        assertTrue(blob.exists());
+        System.out.println(blob.getId());
         blob = connection.getBlob(null, null);
+        write(blob,"sdfds");
+        assertTrue(blob.exists());
+
+        System.out.println(blob.getId());
+
         connection.sync();
         Iterator<URI> result = connection.listBlobIds("uuid");
+        int counter = 0;
         while (result.hasNext()) {
             URI next = result.next();
             System.out.println(next);
+            counter++;
         }
-
+        assertEquals(4,counter);
         connection.close();
         connection.close();
 
@@ -128,16 +143,13 @@ public class JdbcBlobStoreConnectionTest {
         Blob blob = connection.getBlob(null, null);
         System.out.println(blob.exists());
         blob = connection.getBlob(null, null);
-        assertTrue("Blob now exists", blob.exists());
+        assertFalse("Blob now exists", blob.exists());
         write(blob, "test2\nsgd");
+        assertTrue("Blob now exists", blob.exists());
         blob.delete();
         assertFalse(blob.exists());
         connection.close();
 
-        BlobStoreConnection connection2 = store.openConnection(null, null);
-        Blob newblob = connection2.getBlob(blob.getId(), null);
-        assertTrue(newblob.exists());
-        System.out.println(read(newblob));
     }
 
 
@@ -159,6 +171,26 @@ public class JdbcBlobStoreConnectionTest {
             return builder.toString();
         }
         return line;
+    }
+
+    @Test
+    public void testFedoraBehaivoir() throws URISyntaxException, IOException {
+        BlobStoreConnection connection = store.openConnection(null,null);
+        URI object = new URI("current");
+        URI newObject = new URI("new");
+        URI oldObject = new URI("old");
+
+        Blob blob = connection.getBlob(object, null);
+        write(blob,"sampe output");
+
+        Blob newBlob = connection.getBlob(newObject, null);
+        write(newBlob,read(blob));
+        blob.moveTo(oldObject,null);
+        newBlob.moveTo(object,null);
+        Blob oldBlob = connection.getBlob(oldObject, null);
+        oldBlob.delete();
+
+        assertTrue(blob.exists());
     }
 
 }
