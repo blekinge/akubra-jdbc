@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC
+        "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+        "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd" >
+
+
+<hibernate-mapping >
+
+    <class name="dk.statsbiblioteket.doms.akubra_jdbc.HibernateBlob" table="BLOBS">
+
+        <id name="id" type="string" column="ID">
+        </id>
+        <property name="blobValue" type="blob" column="BLOB"/>
+    </class>
+
+</hibernate-mapping>
