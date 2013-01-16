@@ -71,6 +71,7 @@ public class JdbcBlob extends AbstractBlob {
             }
         }
         blob.getBlobValue().free();
+        session.evict(blob);
         buffer.rewind();
         return buffer;
     }
@@ -82,7 +83,7 @@ public class JdbcBlob extends AbstractBlob {
             throw new DuplicateBlobException(getId());
         }
 
-        ensureLoaded();
+        //ensureLoaded();
         if (blob == null){
             return new JdbcOutputstream(getId().toString(), session);
         }else {
@@ -97,10 +98,11 @@ public class JdbcBlob extends AbstractBlob {
         }
         Transaction transaction = null;
         try {
-            transaction = session.beginTransaction();
+        transaction = session.beginTransaction();
             ensureLoaded();
             long size = blob.getBlobValue().length();
             log.info("size of blob {} is {}", getId(), size);
+            session.evict(blob);
             return size;
         } catch (SQLException e) {
             throw new IOException(e);
@@ -126,7 +128,7 @@ public class JdbcBlob extends AbstractBlob {
             Transaction transaction = session.beginTransaction();
             ensureLoaded();
             session.delete(blob);
-            session.flush();
+
             transaction.commit();
         }
     }
