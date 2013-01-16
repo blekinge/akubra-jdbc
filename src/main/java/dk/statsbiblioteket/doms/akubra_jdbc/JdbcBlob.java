@@ -11,6 +11,8 @@ import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.net.URI;
+import java.nio.ByteBuffer;
+import java.nio.MappedByteBuffer;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.Map;
@@ -25,49 +27,67 @@ import java.util.Map;
 public class JdbcBlob extends AbstractBlob {
     Logger log = LoggerFactory.getLogger(JdbcBlob.class);
 
-    private HibernateBlob blob;
+    private transient HibernateBlob blob;
 
     private final Session session;
 
-    public JdbcBlob(JdbcBlobStoreConnection owner, URI uri, HibernateBlob blob, Session session) {
+    public JdbcBlob(JdbcBlobStoreConnection owner, URI uri, Session session) {
         super(owner, uri);    //To change body of overridden methods use File | Settings | File Templates.
-        this.blob = blob;
         this.session = session;
-
     }
 
 
     public InputStream openInputStream() throws IOException, MissingBlobException {
+        Transaction transaction = session.beginTransaction();
         log.info("Attempting to open inputstream for {}", getId());
         if (!exists()) {
             throw new MissingBlobException(id);
         }
         try {
-            ensureLoaded();
-            InputStream stream = blob.getBlobValue().getBinaryStream();
-            //stream.read();
-            return stream;
+            ByteBuffer bytes = readIntoMem();
+
+            return new ByteBufferBackedInputstream(bytes);
         } catch (SQLException e) {
             throw new IOException(e);
+        } finally {
+            transaction.commit();
         }
+    }
+
+    private ByteBuffer readIntoMem() throws SQLException, IOException {
+
+        ensureLoaded();
+        //TODO very large files?
+        ByteBuffer buffer = ByteBuffer.allocate((int) blob.getBlobValue().length());
+        InputStream inputstream = blob.getBlobValue().getBinaryStream();
+        while (true) {
+            byte[] temp = new byte[1024];
+            int length = inputstream.read(temp);
+            if (length > 0) {
+                buffer.put(temp,0,length);
+            } else {
+                inputstream.close();
+                break;
+            }
+        }
+        blob.getBlobValue().free();
+        buffer.rewind();
+        return buffer;
     }
 
     public OutputStream openOutputStream(long estimatedSize, boolean overwrite)
             throws IOException, DuplicateBlobException {
         log.info("Attempting to open outputstream for {}", getId());
-        if (!exists()) {
-            log.info("object {} does not exist, create an empty object", getId());
-            blob = new HibernateBlob(getId().toString(), session.getLobHelper().createBlob(new byte[0]));
-            session.saveOrUpdate(blob);
-            session.flush();
-            session.refresh(blob);
-        }
-        if (!overwrite && getSize() > 0) {
+        if (!overwrite && exists() && getSize() > 0) {
             throw new DuplicateBlobException(getId());
         }
 
-        ensureOpen();
-        return new JdbcOutputstream(blob, session);
+        ensureLoaded();
+        if (blob == null){
+            return new JdbcOutputstream(getId().toString(), session);
+        }else {
+            return new JdbcOutputstream(blob, session);
+        }
     }
 
     public long getSize() throws IOException, MissingBlobException {
@@ -75,20 +95,23 @@ public class JdbcBlob extends AbstractBlob {
         if (!exists()) {
             throw new MissingBlobException(id);
         }
+        Transaction transaction = null;
         try {
+            transaction = session.beginTransaction();
             ensureLoaded();
             long size = blob.getBlobValue().length();
             log.info("size of blob {} is {}", getId(), size);
             return size;
         } catch (SQLException e) {
             throw new IOException(e);
+        } finally {
+            transaction.commit();
         }
     }
 
     private void ensureLoaded() {
-        if (blob == null || !session.contains(blob)){
-            blob = (HibernateBlob) session.get(HibernateBlob.class,getId().toString());
-        }
+        session.evict(blob);
+        blob = (HibernateBlob) session.get(HibernateBlob.class,getId().toString());
     }
 
     public boolean exists() throws IOException {
@@ -100,9 +123,11 @@ public class JdbcBlob extends AbstractBlob {
     public void delete() throws IOException {
         log.info("Blob deleted {}", getId());
         if (exists()) {
+            Transaction transaction = session.beginTransaction();
+            ensureLoaded();
             session.delete(blob);
             session.flush();
-            blob = null;
+            transaction.commit();
         }
     }
 
@@ -116,6 +141,8 @@ public class JdbcBlob extends AbstractBlob {
         Blob newBlob = owner.getBlob(uri, stringStringMap);
         if (!exists()) {
             throw new MissingBlobException(getId());
+        } else {
+            ensureLoaded();
         }
         if (newBlob.exists()) {
             throw new DuplicateBlobException(getId());

@@ -29,11 +29,10 @@ public class JdbcBlobStoreConnection extends AbstractBlobStoreConnection{
         super(owner);
         log.info("Connection opened",session);
         this.session = session;
-        log.info("Beginning transaction",session);
-        transaction = session.beginTransaction();
     }
 
     public Blob getBlob(URI uri, Map<String, String> stringStringMap) throws IOException, UnsupportedIdException, UnsupportedOperationException {
+
 
         log.info("Attempting to retrieve blob {}",uri,stringStringMap);
         if (uri == null){
@@ -41,18 +40,7 @@ public class JdbcBlobStoreConnection extends AbstractBlobStoreConnection{
             log.debug("uri null, created new uri {}",uri);
         }
 
-        Object temp = session.get(HibernateBlob.class, uri.toString());
-        log.info("object retrieved from storage {}",temp);
-
-        if (temp == null){
-            log.info("Object is null, defer creation {}",uri);
-        }
-        HibernateBlob blob = null;
-        if (temp instanceof HibernateBlob) {
-            blob = (HibernateBlob) temp;
-        }
-
-        JdbcBlob jdbcblob = new JdbcBlob(this, uri, blob, session);
+        JdbcBlob jdbcblob = new JdbcBlob(this, uri, session);
         return  jdbcblob;
     }
 
@@ -73,12 +61,7 @@ public class JdbcBlobStoreConnection extends AbstractBlobStoreConnection{
             return;
         }
         log.info("Connection closing");
-        try {
-            sync();
-        } catch (IOException e) {
-            transaction.rollback();
-        }
-        transaction.commit();
+        session.flush();
         super.close();    //To change body of overridden methods use File | Settings | File Templates.
 
     }

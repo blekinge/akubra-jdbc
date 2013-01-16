@@ -39,13 +39,12 @@ public class JdbcBlobStore extends AbstractBlobStore {
     }
 
     public BlobStoreConnection openConnection(Transaction transaction, Map<String, String> stringStringMap) throws UnsupportedOperationException, IOException {
-        log.info("attempting to open connection");
+        log.info("attempting to open connection to store {}",getId());
         Session session = sessionFactory.openSession();
         return new JdbcBlobStoreConnection(this,session);
     }
 
     public void close(){
-
         sessionFactory.close();
     }
 }

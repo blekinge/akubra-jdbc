@@ -45,7 +45,7 @@ public class JdbcBlobStoreConnectionTest {
 
     @org.junit.Test
     public void testOpenConnection() throws Exception {
-
+        System.out.println("Unit test begun");
         BlobStoreConnection connection = store.openConnection(null, null);
         Blob blob = connection.getBlob(new URI("doms:test1"), null);
         String sample1 = "test of content";
