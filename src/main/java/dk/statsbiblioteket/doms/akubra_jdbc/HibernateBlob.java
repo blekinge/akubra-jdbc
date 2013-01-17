@@ -56,7 +56,6 @@ public class HibernateBlob{
     public String toString() {
         return "HibernateBlob{" +
                 "id='" + id + '\'' +
-                ", blobValue=" + blobValue +
                 '}';
     }
 }

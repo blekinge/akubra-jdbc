@@ -29,39 +29,36 @@ public class JdbcBlobStoreConnection extends AbstractBlobStoreConnection{
     Logger log = LoggerFactory.getLogger(JdbcBlobStoreConnection.class);
     private Session session;
 
-
-
-
     public JdbcBlobStoreConnection(JdbcBlobStore owner, Session session, StreamManager streamManager,
                                    IteratorManager<ClosableIterator<URI>> iteratorManager) {
         super(owner);
         this.streamManager = streamManager;
         this.iteratorManager = iteratorManager;
-        log.info("Connection opened",session);
+        log.info("Connection opened");
         this.session = session;
     }
 
     public Blob getBlob(URI uri, Map<String, String> stringStringMap) throws IOException, UnsupportedIdException, UnsupportedOperationException {
 
 
-        log.info("Attempting to retrieve blob {}",uri,stringStringMap);
+        log.debug("Attempting to retrieve blob {}",uri);
         if (uri == null){
             uri = URI.create("uuid:"+UUID.randomUUID().toString());
             log.debug("uri null, created new uri {}",uri);
         }
 
-        JdbcBlob jdbcblob = new JdbcBlob(this, uri, session,streamManager);
+        JdbcBlob jdbcblob = new JdbcBlob(this, uri, session,streamManager,stringStringMap);
         return  jdbcblob;
     }
 
     public Iterator<URI> listBlobIds(String filterPrefix) throws IOException {
-        log.info("Attempting to list all block ids with prefix {}",filterPrefix,session);
-        return iteratorManager.manageIterator(this, new JdbcBlobStoreIterator(session, filterPrefix));
+        log.debug("Attempting to list all block ids with prefix {}",filterPrefix,session);
+        return iteratorManager.manageIterator(this, new JdbcBlobStoreIterator<URI>(session, filterPrefix));
 
     }
 
     public void sync() throws IOException, UnsupportedOperationException {
-        log.info("Sync called");
+        log.debug("Sync called");
         session.flush();
     }
 
@@ -70,12 +67,11 @@ public class JdbcBlobStoreConnection extends AbstractBlobStoreConnection{
         if (isClosed()){
             return;
         }
-        log.info("Connection closing");
+        log.debug("Connection closing");
         session.flush();
         streamManager.connectionClosed(this);
         iteratorManager.connectionClosed(this);
-        super.close();    //To change body of overridden methods use File | Settings | File Templates.
-
+        super.close();
     }
 
 }

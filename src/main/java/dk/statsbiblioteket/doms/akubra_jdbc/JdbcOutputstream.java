@@ -36,7 +36,7 @@ public class JdbcOutputstream extends ByteArrayOutputStream {
     @Override
     public void close() throws IOException {
 
-        log.info("Closing outputstream for {}",blob);
+        log.info("Attempting closing outputstream for {}",blob);
         super.close();    //To change body of overridden methods use File | Settings | File Templates.
         byte[] result = this.toByteArray();
         if (session.isOpen()){
@@ -52,6 +52,9 @@ public class JdbcOutputstream extends ByteArrayOutputStream {
             transaction.commit();
             blob.reset();
             session.evict(hibernateBlob);
+            log.info("Closed outputstream for {}",blob);
+        } else {
+            log.info("Session closed, not closing of outputstream for blob {} possible",blob);
         }
 
     }
