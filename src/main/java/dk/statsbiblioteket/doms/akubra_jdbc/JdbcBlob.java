@@ -1,8 +1,9 @@
 package dk.statsbiblioteket.doms.akubra_jdbc;
 
+import dk.statsbiblioteket.doms.akubra_jdbc.util.ByteBufferBackedInputstream;
 import org.akubraproject.*;
 import org.akubraproject.impl.AbstractBlob;
-import org.hibernate.LobHelper;
+import org.akubraproject.impl.StreamManager;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.hibernate.criterion.Restrictions;
@@ -12,8 +13,6 @@ import org.slf4j.LoggerFactory;
 import java.io.*;
 import java.net.URI;
 import java.nio.ByteBuffer;
-import java.nio.MappedByteBuffer;
-import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.Map;
 
@@ -29,13 +28,22 @@ public class JdbcBlob extends AbstractBlob {
 
     private transient HibernateBlob blob;
 
+    private long size;
     private final Session session;
+    private final StreamManager streamManager;
 
-    public JdbcBlob(JdbcBlobStoreConnection owner, URI uri, Session session) {
+    public JdbcBlob(JdbcBlobStoreConnection owner, URI uri, Session session, StreamManager streamManager) {
         super(owner, uri);    //To change body of overridden methods use File | Settings | File Templates.
         this.session = session;
+        this.streamManager = streamManager;
     }
 
+
+    public void reset(){
+        size = -1;
+        session.evict(blob);
+        blob = null;
+    }
 
     public InputStream openInputStream() throws IOException, MissingBlobException {
         Transaction transaction = session.beginTransaction();
@@ -46,11 +54,16 @@ public class JdbcBlob extends AbstractBlob {
         try {
             ByteBuffer bytes = readIntoMem();
 
-            return new ByteBufferBackedInputstream(bytes);
+
+            ByteBufferBackedInputstream stream = new ByteBufferBackedInputstream(bytes);
+            return streamManager.manageInputStream(getConnection(),stream);
         } catch (SQLException e) {
+            transaction.rollback();
             throw new IOException(e);
         } finally {
-            transaction.commit();
+            if (!transaction.wasRolledBack()){
+                transaction.commit();
+            }
         }
     }
 
@@ -70,6 +83,7 @@ public class JdbcBlob extends AbstractBlob {
                 break;
             }
         }
+        size = blob.getBlobValue().length();
         blob.getBlobValue().free();
         session.evict(blob);
         buffer.rewind();
@@ -83,12 +97,7 @@ public class JdbcBlob extends AbstractBlob {
             throw new DuplicateBlobException(getId());
         }
 
-        //ensureLoaded();
-        if (blob == null){
-            return new JdbcOutputstream(getId().toString(), session);
-        }else {
-            return new JdbcOutputstream(blob, session);
-        }
+        return streamManager.manageOutputStream(getConnection(),new JdbcOutputstream(this, session));
     }
 
     public long getSize() throws IOException, MissingBlobException {
@@ -96,20 +105,30 @@ public class JdbcBlob extends AbstractBlob {
         if (!exists()) {
             throw new MissingBlobException(id);
         }
-        Transaction transaction = null;
-        try {
+        Transaction transaction;
         transaction = session.beginTransaction();
+        try {
+            if (size > 0){
+                return size;
+            }
+
             ensureLoaded();
-            long size = blob.getBlobValue().length();
+            size = blob.getBlobValue().length();
             log.info("size of blob {} is {}", getId(), size);
             session.evict(blob);
             return size;
         } catch (SQLException e) {
+            transaction.rollback();
             throw new IOException(e);
         } finally {
-            transaction.commit();
+            if (!transaction.wasRolledBack()){
+                transaction.commit();
+            }
+
         }
     }
+
+
 
     private void ensureLoaded() {
         session.evict(blob);
@@ -128,8 +147,9 @@ public class JdbcBlob extends AbstractBlob {
             Transaction transaction = session.beginTransaction();
             ensureLoaded();
             session.delete(blob);
-
             transaction.commit();
+            reset();
+
         }
     }
 
@@ -167,5 +187,9 @@ public class JdbcBlob extends AbstractBlob {
         log.info("moveTo from {} to {} is now done", getId(),uri);
 
         return newBlob;
+    }
+
+    public HibernateBlob getHibernateBlob() {
+        return blob;
     }
 }

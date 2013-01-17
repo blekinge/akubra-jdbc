@@ -23,18 +23,12 @@ public class JdbcOutputstream extends ByteArrayOutputStream {
 
 
     Logger log = LoggerFactory.getLogger(JdbcOutputstream.class);
-    private HibernateBlob blob;
     private String id;
     private Session session;
+    private final JdbcBlob blob;
 
-    public JdbcOutputstream(HibernateBlob blob, Session session) {
+    public JdbcOutputstream(JdbcBlob blob, Session session) {
         this.blob = blob;
-        this.session = session;
-    }
-
-    public JdbcOutputstream(String id, Session session) {
-        this.id = id;
-
         this.session = session;
     }
 
@@ -48,14 +42,16 @@ public class JdbcOutputstream extends ByteArrayOutputStream {
         if (session.isOpen()){
             Transaction transaction = session.beginTransaction();
             Blob blobValue = session.getLobHelper().createBlob(result);
-            if (blob == null){
-                blob = new HibernateBlob(id,blobValue);
+            HibernateBlob hibernateBlob = blob.getHibernateBlob();
+            if (hibernateBlob == null){
+                hibernateBlob = new HibernateBlob(blob.getId().toString(),blobValue);
             } else {
-                blob.setBlobValue(blobValue);
+                hibernateBlob.setBlobValue(blobValue);
             }
-            session.saveOrUpdate(blob);
+            session.saveOrUpdate(hibernateBlob);
             transaction.commit();
-            session.evict(blob);
+            blob.reset();
+            session.evict(hibernateBlob);
         }
 
     }

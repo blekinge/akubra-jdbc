@@ -1,4 +1,4 @@
-package dk.statsbiblioteket.doms.akubra_jdbc;
+package dk.statsbiblioteket.doms.akubra_jdbc.util;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -14,7 +14,7 @@ import java.nio.ByteBuffer;
 public class ByteBufferBackedInputstream  extends InputStream {
 
     ByteBuffer buf;
-    ByteBufferBackedInputstream(ByteBuffer buf){
+    public ByteBufferBackedInputstream(ByteBuffer buf){
         this.buf = buf;
 
     }

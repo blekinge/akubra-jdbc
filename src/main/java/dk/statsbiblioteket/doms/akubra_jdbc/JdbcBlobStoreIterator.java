@@ -1,16 +1,14 @@
 package dk.statsbiblioteket.doms.akubra_jdbc;
 
 import com.google.common.collect.AbstractIterator;
+import dk.statsbiblioteket.doms.akubra_jdbc.util.ClosableIterator;
 import org.hibernate.Criteria;
-import org.hibernate.Query;
 import org.hibernate.ScrollableResults;
 import org.hibernate.Session;
 import org.hibernate.criterion.Restrictions;
 
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.Iterator;
-import java.util.List;
 
 /**
  * Created with IntelliJ IDEA.
@@ -19,17 +17,14 @@ import java.util.List;
  * Time: 1:04 PM
  * To change this template use File | Settings | File Templates.
  */
-public class JdbcBlobStoreIterator extends AbstractIterator<URI> {
+public class JdbcBlobStoreIterator extends AbstractIterator<URI> implements ClosableIterator<URI> {
     private final ScrollableResults result;
 
 
     public JdbcBlobStoreIterator(Session session, String filterPrefix) {
         Criteria query = session.createCriteria(HibernateBlob.class).setFetchSize(1000).add(
                 Restrictions.like("id", filterPrefix+"%"));
-
         result = query.scroll();
-
-
     }
 
     @Override
@@ -42,7 +37,14 @@ public class JdbcBlobStoreIterator extends AbstractIterator<URI> {
                 return null;
             }
         } else {
+            close();
             return endOfData();
         }
+    }
+
+    public boolean close(){
+        result.close();
+        return true;
+
     }
 }
